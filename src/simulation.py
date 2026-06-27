@@ -1,14 +1,18 @@
-import tkinter as tk
-import math
 from src.agent.agent import Agent
+import tkinter as tk
+import argparse
 import random
+import pickle
+import math
+import os
 
 class Simulation:
-    def __init__(self, root, config: dict):
+    def __init__(self, root, config: dict, args: argparse.Namespace):
+        self.args = args
+        self.config = config
         self.root = root
         self.root.title("2D Agent Food Simulation")
 
-        self.config = config
         self.trail = []
 
         # Setup Canvas
@@ -19,9 +23,19 @@ class Simulation:
         self.agents = [Agent(config=config) for _ in range(config['Simulation']['num_agents'])]
         self.foods = [[random.uniform(20, config['Simulation']['screen_width']-20), random.uniform(20, config['Simulation']['screen_height']-20)] for _ in range(config['Simulation']['num_food'])]
         
-        for a in self.agents:
-            a.pretrain()
-
+        if self.args.load_prev_nets:
+            for i in range(len(self.agents)):
+                assert os.path.exists(f"agent_models/{i}.pkl")
+                with open(f"agent_models/{i}.pkl", "rb") as f:
+                    net = pickle.load(f)
+                self.agents[i].net = net
+        else:
+            os.makedirs("agent_models", exist_ok=True)
+            for i, a in enumerate(self.agents):
+                a.pretrain()
+                with open(f"agent_models/{i}.pkl", "wb") as f:
+                    pickle.dump(a.net, f)
+                
         # Start the loop
         self.run_loop()
 
@@ -45,9 +59,13 @@ class Simulation:
         # 2. Update and Draw Agents (Triangles)
         for agent_id, agent in enumerate(self.agents):
             agent.update(self.foods)
-            self.trail.append((agent.x, agent.y))
-            if len(self.trail) > 100:
-                self.trail = self.trail[-100:] 
+
+            #keep track of trail if user is interested
+            if self.args.trail:
+                self.trail.append((agent.x, agent.y))
+                if len(self.trail) > 100:
+                    self.trail = self.trail[-100:] 
+            
             if agent.is_dead():
                 dead_agents.append(agent_id)
             # Check collisions with any food item
@@ -56,14 +74,21 @@ class Simulation:
                     # Eat food and respawn it elsewhere
                     self.foods[i] = [random.uniform(20, self.config['Simulation']['screen_width']-20), random.uniform(20, self.config['Simulation']['screen_height']-20)]
                     agent.food += self.config['Agent']['eat_amount']
+            
             # Draw oriented triangle geometry
             coords = agent.get_triangle_coords()
             self.canvas.create_polygon(coords, fill="#00BCD4", outline="#FFFFFF")
+
+            #hightlight witnessed food if user is interested
+            if self.args.highlight_witnessed:
+                for f in agent.highlights:
+                    self.canvas.create_rectangle(f[0]-(self.config['Food']['size']/2), f[1]-(self.config['Food']['size']/2), f[0]+(self.config['Food']['size']/2), f[1]+(self.config['Food']['size']/2), fill="#FF0000", outline="#FFFFFF")
             
-            for f in agent.highlights:
-                self.canvas.create_rectangle(f[0]-(self.config['Food']['size']/2), f[1]-(self.config['Food']['size']/2), f[0]+(self.config['Food']['size']/2), f[1]+(self.config['Food']['size']/2), fill="#FF0000", outline="#FFFFFF")
-            for x, y in self.trail:
-                self.canvas.create_line(x, y, x+1, y+1, fill="red")
+            #show trail of agents if user is interested
+            if self.args.trail:
+                for x, y in self.trail:
+                    self.canvas.create_line(x, y, x+1, y+1, fill="red")
+            
             possible_babies = agent.evolve_if_possible()
             if possible_babies:
                 new_agents+=possible_babies
