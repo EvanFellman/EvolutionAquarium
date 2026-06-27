@@ -4,26 +4,20 @@ from src.agent.agent import Agent
 import random
 
 class Simulation:
-    def __init__(self, root, agent_size:int, screen_width:int, screen_height:int, eat_amount:int=200, food_size:int=8, num_agents:int=8, num_food:int=50):
+    def __init__(self, root, config: dict):
         self.root = root
         self.root.title("2D Agent Food Simulation")
 
-        # Set constants
-        self.num_agents = num_agents
-        self.num_food = num_food
-        self.food_size = food_size
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-        self.agent_size = agent_size
-        self.eat_amount = eat_amount
+        self.config = config
         self.trail = []
+
         # Setup Canvas
-        self.canvas = tk.Canvas(root, width=screen_width, height=screen_height, bg="#222222")
+        self.canvas = tk.Canvas(root, width=config['Simulation']['screen_width'], height=config['Simulation']['screen_height'], bg="#222222")
         self.canvas.pack()
 
         # Initialize entities
-        self.agents = [Agent(ray_count=50, food=300, food_size=self.food_size, screen_width=self.screen_width, screen_height=self.screen_height, size=self.agent_size) for _ in range(self.num_agents)]
-        self.foods = [[random.uniform(20, self.screen_width-20), random.uniform(20, self.screen_height-20)] for _ in range(self.num_food)]
+        self.agents = [Agent(config=config) for _ in range(config['Simulation']['num_agents'])]
+        self.foods = [[random.uniform(20, config['Simulation']['screen_width']-20), random.uniform(20, config['Simulation']['screen_height']-20)] for _ in range(config['Simulation']['num_food'])]
         
         for a in self.agents:
             a.pretrain()
@@ -39,8 +33,8 @@ class Simulation:
         for i, food in enumerate(self.foods):
             fx, fy = food
             self.canvas.create_rectangle(
-                fx - self.food_size/2, fy - self.food_size/2,
-                fx + self.food_size/2, fy + self.food_size/2,
+                fx - self.config['Food']['size']/2, fy - self.config['Food']['size']/2,
+                fx + self.config['Food']['size']/2, fy + self.config['Food']['size']/2,
                 fill="#4CAF50", outline=""
             )
             
@@ -58,16 +52,16 @@ class Simulation:
                 dead_agents.append(agent_id)
             # Check collisions with any food item
             for i, food in enumerate(self.foods):
-                if math.hypot(agent.x - food[0], agent.y - food[1]) < (self.agent_size + self.food_size) / 2:
+                if math.hypot(agent.x - food[0], agent.y - food[1]) < (self.config['Agent']['size'] + self.config['Agent']['size']) / 2:
                     # Eat food and respawn it elsewhere
-                    self.foods[i] = [random.uniform(20, self.screen_width-20), random.uniform(20, self.screen_height-20)]
-                    agent.food += self.eat_amount
+                    self.foods[i] = [random.uniform(20, self.config['Simulation']['screen_width']-20), random.uniform(20, self.config['Simulation']['screen_height']-20)]
+                    agent.food += self.config['Agent']['eat_amount']
             # Draw oriented triangle geometry
             coords = agent.get_triangle_coords()
             self.canvas.create_polygon(coords, fill="#00BCD4", outline="#FFFFFF")
             
             for f in agent.highlights:
-                self.canvas.create_rectangle(f[0]-(self.food_size/2), f[1]-(self.food_size/2), f[0]+(self.food_size/2), f[1]+(self.food_size/2), fill="#FF0000", outline="#FFFFFF")
+                self.canvas.create_rectangle(f[0]-(self.config['Food']['size']/2), f[1]-(self.config['Food']['size']/2), f[0]+(self.config['Food']['size']/2), f[1]+(self.config['Food']['size']/2), fill="#FF0000", outline="#FFFFFF")
             for x, y in self.trail:
                 self.canvas.create_line(x, y, x+1, y+1, fill="red")
             possible_babies = agent.evolve_if_possible()

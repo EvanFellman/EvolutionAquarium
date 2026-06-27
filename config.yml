@@ -1,0 +1,16 @@
+Simulation:
+  screen_width: 800
+  screen_height: 600
+  num_agents: 8
+  num_food: 50
+
+Food:
+  size: 8
+
+
+Agent:
+  size: 12
+  eat_amount: 200
+  ray_count: 50
+  starting_food: 300
+  max_ray_dist: 50000

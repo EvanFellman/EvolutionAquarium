@@ -9,23 +9,18 @@ from src.agent.agentnet import AgentNetwork
 import torch.optim.lr_scheduler as lr_scheduler
 
 class Agent:
-    def __init__(self, ray_count:int, food:float, food_size:float, screen_width:int, screen_height:int, size:int, max_ray_dist:float=50000):
+    def __init__(self, config: dict):
+        self.config = config
         self.speed = 1
-        self.x = random.uniform(50, screen_width - 50)
-        self.y = random.uniform(50, screen_height - 50)
-        self.screen_width = screen_width
-        self.screen_height = screen_height
+        self.x = random.uniform(50, config['Simulation']['screen_width'] - 50)
+        self.y = random.uniform(50, config['Simulation']['screen_height'] - 50)
         self.angle = random.uniform(0, 2 * math.pi)
-        self.size = size
-        self.food = food 
-        self.food_size = food_size
-        self.ray_count = ray_count
-        self.net = AgentNetwork(self.ray_count, 2)
-        self.max_ray_dist = max_ray_dist
+        self.food = self.config['Agent']['starting_food']
+        self.net = AgentNetwork(self.config['Agent']['ray_count'], 2)
         self.highlights = []
 
     def _ray(self, angle, foods):
-        min_dist = self.max_ray_dist
+        min_dist = self.config['Agent']['max_ray_dist']
         ray_vec = np.array([np.cos(angle), np.sin(angle)])
         closest_food = None
         for f in foods:
@@ -40,7 +35,7 @@ class Agent:
             angle = np.arccos(cos_sim)
             
             dist_to_me = ((fx - self.x) ** 2 + (fy - self.y) ** 2)
-            if np.abs(angle) < (2 / self.ray_count) and dist_to_me < min_dist:
+            if np.abs(angle) < (2 / self.config['Agent']['ray_count']) and dist_to_me < min_dist:
                 min_dist = dist_to_me
                 closest_food = f
         if closest_food is not None:
@@ -49,11 +44,11 @@ class Agent:
     
     def _input_to_model(self, foods):
         self.highlights = []
-        ray_angles = np.linspace(-1,1,self.ray_count) + self.angle
+        ray_angles = np.linspace(-1,1,self.config['Agent']['ray_count']) + self.angle
         ray_angles[ray_angles > 2 * np.pi] -= 2 * np.pi
         ray_angles[ray_angles < 0] += 2 * np.pi
         dists_to_food = torch.tensor([self._ray(ray_angle, foods) for ray_angle in ray_angles])
-        dists_to_food = 1 - (dists_to_food / self.max_ray_dist)
+        dists_to_food = 1 - (dists_to_food /  self.config['Agent']['max_ray_dist'])
         return dists_to_food
 
     def update(self, foods):
@@ -75,16 +70,16 @@ class Agent:
 
     def get_triangle_coords(self):
         # Point 1: Tip of the triangle (facing forward)
-        pt1_x = self.x + self.size * math.cos(self.angle)
-        pt1_y = self.y + self.size * math.sin(self.angle)
+        pt1_x = self.x + self.config['Agent']['size'] * math.cos(self.angle)
+        pt1_y = self.y + self.config['Agent']['size'] * math.sin(self.angle)
         
         # Point 2: Rear left flank
-        pt2_x = self.x + (self.size / 2) * math.cos(self.angle + 2.5)
-        pt2_y = self.y + (self.size / 2) * math.sin(self.angle + 2.5)
+        pt2_x = self.x + (self.config['Agent']['size'] / 2) * math.cos(self.angle + 2.5)
+        pt2_y = self.y + (self.config['Agent']['size'] / 2) * math.sin(self.angle + 2.5)
         
         # Point 3: Rear right flank
-        pt3_x = self.x + (self.size / 2) * math.cos(self.angle - 2.5)
-        pt3_y = self.y + (self.size / 2) * math.sin(self.angle - 2.5)
+        pt3_x = self.x + (self.config['Agent']['size'] / 2) * math.cos(self.angle - 2.5)
+        pt3_y = self.y + (self.config['Agent']['size'] / 2) * math.sin(self.angle - 2.5)
         
         return [pt1_x, pt1_y, pt2_x, pt2_y, pt3_x, pt3_y]
 
@@ -109,7 +104,7 @@ class Agent:
                 #generate ones farther away
                 for _ in range(random.randint(0,5)):
                     farther_angle = random.uniform(-1, 1)
-                    farther_dist = random.uniform(dist+1, self.max_ray_dist / 5)
+                    farther_dist = random.uniform(dist+1, self.config['Agent']['max_ray_dist'] / 5)
                     fx, fy = self.x + (math.cos(self.angle + farther_angle) * farther_dist), self.y + (math.sin(self.angle + farther_angle) * farther_dist)
                     inputs.append([fx, fy])
                 
@@ -130,10 +125,11 @@ class Agent:
             scheduler.step()
 
     def is_dead(self):
-        return self.food <= 0 or self.x < 0 or self.x > self.screen_width or self.y < 0 or self.y > self.screen_height
+        return self.food <= 0 or self.x < 0 or self.x > self.config['Simulation']['screen_width'] or self.y < 0 or self.y > self.config['Simulation']['screen_width']
 
     def copy(self):
-        baby = Agent(ray_count=self.ray_count, food=120, food_size=self.food_size, screen_width=self.screen_width, screen_height=self.screen_height, size=self.size, max_ray_dist=self.max_ray_dist)
+        baby = Agent(config=self.config)
+        baby.food = 120
         baby.net.load_state_dict(self.net.state_dict())
         return baby
 
