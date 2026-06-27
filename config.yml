@@ -7,7 +7,6 @@ Simulation:
 Food:
   size: 8
 
-
 Agent:
   size: 12
   eat_amount: 200
