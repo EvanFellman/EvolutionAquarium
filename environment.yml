@@ -7,5 +7,6 @@ dependencies:
   - python=3.10.20
   - pip:
       - numpy==2.2.6
+      - pyyaml==6.0.3
       - torch==2.12.1
       - tqdm==4.68.3
