@@ -1,15 +1,19 @@
 Simulation:
-  screen_width: 800
-  screen_height: 600
-  num_agents: 2
-  num_food: 50
+  screen_width: 1600
+  screen_height: 1200
+  num_agents: 5
+  num_food: 100
 
 Food:
   size: 8
+  spawnrate: 60
 
 Agent:
   size: 12
   eat_amount: 200
   ray_count: 50
-  starting_food: 300
+  starting_food: 500
   max_ray_dist: 50000
+  childThres: 600
+  numChildren: 1
+  birthCost: 0

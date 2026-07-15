@@ -34,8 +34,7 @@ class Agent:
         #angles \in R^{Objs x Rays}
         dists = torch.sum(to_obj_vecs ** 2, axis=-1)
         #dists \in R^{Objs}
-        
-        dists_in_sight = torch.where(angles < (2 / self.config['Agent']['ray_count']), dists[None], self.config['Agent']['max_ray_dist'])
+        dists_in_sight = torch.where((angles < (2 / self.config['Agent']['ray_count'])).T, dists[None], self.config['Agent']['max_ray_dist'])
         return torch.min(dists_in_sight, dim=1).values
     
     def _input_to_model(self, foods):
@@ -132,16 +131,16 @@ class Agent:
 
     def _perform_evolve(self):
         babies = []
-        for _ in range(2):
+        for _ in range(self.config['Agent']["numChildren"]):
             with torch.no_grad():
                 baby = self.copy()
                 for _, param in baby.net.named_parameters():
                     param += torch.randn(param.shape) * 1e-3
             babies.append(baby)
-        self.food -= 60
+        self.food -= self.config['Agent']["birthCost"]
         return babies
 
     def evolve_if_possible(self):
-        if self.food > 300:
+        if self.food > self.config['Agent']["childThres"]:
             return self._perform_evolve()
         return None

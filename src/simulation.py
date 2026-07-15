@@ -26,6 +26,7 @@ class Simulation:
         self.foods[:,0] *= self.config['Simulation']['screen_width']  - (2 * self.config['Food']['size'])
         self.foods[:,1] *= self.config['Simulation']['screen_height'] - (2 * self.config['Food']['size'])
         self.foods += self.config['Food']['size']
+        self.food_cool_down = self.config['Food']['spawnrate']
         
         
         if self.args.load_prev_nets:
@@ -77,13 +78,21 @@ class Simulation:
             # Check collisions with any food item
             for i, food in enumerate(self.foods):
                 if math.hypot(agent.x - food[0], agent.y - food[1]) < (self.config['Agent']['size'] + self.config['Agent']['size']) / 2:
-                    # Eat food and respawn it elsewhere
-                    self.foods[i,:] = torch.rand(2)
-                    self.foods[i,0] *= self.config['Simulation']['screen_width']  - (2 * self.config['Food']['size'])
-                    self.foods[i,1] *= self.config['Simulation']['screen_height'] - (2 * self.config['Food']['size'])
-                    self.foods[i,:] += self.config['Food']['size']
+                    # Eat food
+                    self.foods[i,:] = torch.inf
                     agent.food += self.config['Agent']['eat_amount']
             
+            self.food_cool_down -= 1
+            #Respawn food when it's time to try
+            if self.food_cool_down == 0:
+                self.food_cool_down = self.config['Food']['spawnrate']
+                food_to_respawn = torch.where(self.foods == torch.inf)[0]
+                if food_to_respawn.shape[0] > 0:
+                    self.foods[food_to_respawn[0]] = torch.rand(2)
+                    self.foods[food_to_respawn[0],0] *= self.config['Simulation']['screen_width']  - (2 * self.config['Food']['size'])
+                    self.foods[food_to_respawn[0],1] *= self.config['Simulation']['screen_height'] - (2 * self.config['Food']['size'])
+                    self.foods[food_to_respawn[0],:] += self.config['Food']['size']
+
             # Draw oriented triangle geometry
             coords = agent.get_triangle_coords()
             self.canvas.create_polygon(coords, fill="#00BCD4", outline="#FFFFFF")
