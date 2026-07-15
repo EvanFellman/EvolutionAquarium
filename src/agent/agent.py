@@ -20,35 +20,31 @@ class Agent:
         self.net = AgentNetwork(self.config['Agent']['ray_count'], 2)
         self.highlights = []
 
-    def _ray(self, angle, foods):
-        min_dist = self.config['Agent']['max_ray_dist']
-        ray_vec = np.array([np.cos(angle), np.sin(angle)])
-        closest_food = None
-        for f in foods:
-            fx, fy = f[0], f[1]
+    def _ray(self, angles, foods):
+        #ray_vecs \in R^{Rays x 2}
+        ray_vecs = torch.stack([torch.cos(angles), torch.sin(angles)], dim=1)
 
-            #normalized vector to get to the food
-            to_obj_vec = np.array([fx - self.x, fy - self.y])
-            to_obj_vec = to_obj_vec / np.linalg.norm(to_obj_vec)
+        to_obj_vecs = foods - torch.Tensor([self.x, self.y])
+        #to_obj_vecs \in R^{Objs x 2}
+        to_obj_vecs_norm = to_obj_vecs / torch.linalg.norm(to_obj_vecs, dim=-1)[:,None]
 
-            #is it a close enough angle?
-            cos_sim = to_obj_vec @ ray_vec
-            angle = np.arccos(cos_sim)
-            
-            dist_to_me = ((fx - self.x) ** 2 + (fy - self.y) ** 2)
-            if np.abs(angle) < (2 / self.config['Agent']['ray_count']) and dist_to_me < min_dist:
-                min_dist = dist_to_me
-                closest_food = f
-        if closest_food is not None:
-            self.highlights.append(closest_food)
-        return min_dist
+        cos_sims = to_obj_vecs_norm @ ray_vecs.T
+        #cos_sims \in R^{Objs x Rays}
+        angles = torch.arccos(cos_sims)
+        #angles \in R^{Objs x Rays}
+        dists = torch.sum(to_obj_vecs ** 2, axis=-1)
+        #dists \in R^{Objs}
+        
+        dists_in_sight = torch.where(angles < (2 / self.config['Agent']['ray_count']), dists[None], self.config['Agent']['max_ray_dist'])
+        return torch.min(dists_in_sight, dim=1).values
     
     def _input_to_model(self, foods):
         self.highlights = []
-        ray_angles = np.linspace(-1,1,self.config['Agent']['ray_count']) + self.angle
+        ray_angles = torch.linspace(-1,1,self.config['Agent']['ray_count']) + self.angle
         ray_angles[ray_angles > 2 * np.pi] -= 2 * np.pi
         ray_angles[ray_angles < 0] += 2 * np.pi
-        dists_to_food = torch.tensor([self._ray(ray_angle, foods) for ray_angle in ray_angles])
+
+        dists_to_food = self._ray(ray_angles, foods)
         dists_to_food = 1 - (dists_to_food /  self.config['Agent']['max_ray_dist'])
         return dists_to_food
 

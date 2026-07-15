@@ -3,6 +3,7 @@ import tkinter as tk
 import argparse
 import random
 import pickle
+import torch
 import math
 import os
 
@@ -21,7 +22,11 @@ class Simulation:
 
         # Initialize entities
         self.agents = [Agent(config=config) for _ in range(config['Simulation']['num_agents'])]
-        self.foods = [[random.uniform(20, config['Simulation']['screen_width']-20), random.uniform(20, config['Simulation']['screen_height']-20)] for _ in range(config['Simulation']['num_food'])]
+        self.foods = torch.rand(self.config['Simulation']['num_food'], 2)
+        self.foods[:,0] *= self.config['Simulation']['screen_width']  - (2 * self.config['Food']['size'])
+        self.foods[:,1] *= self.config['Simulation']['screen_height'] - (2 * self.config['Food']['size'])
+        self.foods += self.config['Food']['size']
+        
         
         if self.args.load_prev_nets:
             for i in range(len(self.agents)):
@@ -46,6 +51,7 @@ class Simulation:
         # 1. Update and Draw Food (Squares)
         for i, food in enumerate(self.foods):
             fx, fy = food
+            fx, fy = fx.item(), fy.item()
             self.canvas.create_rectangle(
                 fx - self.config['Food']['size']/2, fy - self.config['Food']['size']/2,
                 fx + self.config['Food']['size']/2, fy + self.config['Food']['size']/2,
@@ -72,7 +78,10 @@ class Simulation:
             for i, food in enumerate(self.foods):
                 if math.hypot(agent.x - food[0], agent.y - food[1]) < (self.config['Agent']['size'] + self.config['Agent']['size']) / 2:
                     # Eat food and respawn it elsewhere
-                    self.foods[i] = [random.uniform(20, self.config['Simulation']['screen_width']-20), random.uniform(20, self.config['Simulation']['screen_height']-20)]
+                    self.foods[i,:] = torch.rand(2)
+                    self.foods[i,0] *= self.config['Simulation']['screen_width']  - (2 * self.config['Food']['size'])
+                    self.foods[i,1] *= self.config['Simulation']['screen_height'] - (2 * self.config['Food']['size'])
+                    self.foods[i,:] += self.config['Food']['size']
                     agent.food += self.config['Agent']['eat_amount']
             
             # Draw oriented triangle geometry

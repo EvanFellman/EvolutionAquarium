@@ -1,7 +1,7 @@
 Simulation:
   screen_width: 800
   screen_height: 600
-  num_agents: 8
+  num_agents: 2
   num_food: 50
 
 Food:
